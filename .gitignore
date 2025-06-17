@@ -1,0 +1,14 @@
+# Node modules
+node_modules/
+
+# Entorno
+.env
+
+# Archivos de subida (imágenes, etc.)
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
