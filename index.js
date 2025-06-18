@@ -1,11 +1,21 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+
 // 👉 Cargar configuración según el entorno
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config({ path: '.env.local' });
 } else {
     require('dotenv').config();
 }
+
+// 👉 Crear carpetas de subida si no existen
+const uploadsDir = path.join(__dirname, 'uploads');
+const blogDir = path.join(uploadsDir, 'blog');
+
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+if (!fs.existsSync(blogDir)) fs.mkdirSync(blogDir);
 
 // Rutas existentes
 const authRoutes = require('./routes/authRoutes');
@@ -25,16 +35,14 @@ app.use(cors({
     allowedHeaders: ['Content-Type']
 }));
 
-
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', userRoutes);
 app.use('/api', diagnosticoRoutes);
-app.use('/api/pqrsf', pqrsfRoutes); // Ruta para el formulario PQRSF
+app.use('/api/pqrsf', pqrsfRoutes);
 app.use('/uploads', express.static('uploads'));
 app.use('/uploads/blog', express.static('uploads/blog'));
 app.use('/api/blog', blogRoutes);
-
 
 // Iniciar servidor
 app.listen(PORT, () => {
