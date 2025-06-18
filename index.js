@@ -14,8 +14,15 @@ if (process.env.NODE_ENV !== 'production') {
 const uploadsDir = path.join(__dirname, 'uploads');
 const blogDir = path.join(uploadsDir, 'blog');
 
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
-if (!fs.existsSync(blogDir)) fs.mkdirSync(blogDir);
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+    console.log('🗂️ Carpeta /uploads creada');
+}
+if (!fs.existsSync(blogDir)) {
+    fs.mkdirSync(blogDir);
+    console.log('🗂️ Carpeta /uploads/blog creada');
+}
+
 
 // Rutas existentes
 const authRoutes = require('./routes/authRoutes');
