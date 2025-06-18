@@ -3,6 +3,8 @@ node_modules/
 
 # Entorno
 .env
+.env.local
+
 
 # Archivos de subida (imágenes, etc.)
 uploads/

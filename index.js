@@ -1,6 +1,11 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+// 👉 Cargar configuración según el entorno
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config({ path: '.env.local' });
+} else {
+    require('dotenv').config();
+}
 
 // Rutas existentes
 const authRoutes = require('./routes/authRoutes');
@@ -15,10 +20,11 @@ const PORT = process.env.PORT || 4000;
 // Middlewares
 app.use(express.json());
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://legal360.co'],
+    origin: ['http://localhost:5173', 'https://legal360.co', 'https://www.legal360.co'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type']
 }));
+
 
 // Rutas
 app.use('/api/auth', authRoutes);
