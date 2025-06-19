@@ -17,4 +17,13 @@ const storage = new CloudinaryStorage({
     },
 });
 
-module.exports = { cloudinary, storage };
+const pdfStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'legal360/pqrsf',
+        resource_type: 'raw', // Para PDFs u otros archivos no imagen
+        allowed_formats: ['pdf'],
+    },
+});
+
+module.exports = { cloudinary, storage, pdfStorage };

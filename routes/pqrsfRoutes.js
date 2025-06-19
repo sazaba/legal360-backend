@@ -1,7 +1,6 @@
 const express = require('express');
-const upload = require('../config/multerConfig');
-
 const router = express.Router();
+
 const {
     crearPQRSF,
     obtenerPQRSF,
@@ -11,7 +10,7 @@ const {
 } = require('../controllers/pqrsfController');
 
 // Crear nuevo PQRSF
-router.post('/', upload.array('archivos[]', 5), crearPQRSF);
+router.post('/', crearPQRSF);
 
 // Obtener todos los registros
 router.get('/', obtenerPQRSF);
@@ -19,10 +18,10 @@ router.get('/', obtenerPQRSF);
 // Obtener uno por ID
 router.get('/:id', obtenerPQRSFPorId);
 
-// Actualizar uno por ID
+// Actualizar un registro (en el futuro si implementas actualización)
 router.put('/:id', actualizarPQRSF);
 
-// Eliminar uno por ID
+// Eliminar uno por ID (también elimina archivos en Supabase)
 router.delete('/:id', eliminarPQRSF);
 
 module.exports = router;

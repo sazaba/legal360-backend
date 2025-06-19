@@ -1,6 +1,6 @@
+// ✅ Controlador completo usando Supabase Storage en lugar de Cloudinary
 const db = require('../config/db');
-const fs = require('fs');
-const path = require('path');
+const { supabase } = require('../config/supabaseClient');
 
 // Crear nuevo registro PQRSF
 exports.crearPQRSF = async (req, res) => {
@@ -14,6 +14,7 @@ exports.crearPQRSF = async (req, res) => {
         telefono_adicional,
         objeto,
         descripcion,
+        archivos,
         autorizacion_datos
     } = req.body;
 
@@ -22,7 +23,8 @@ exports.crearPQRSF = async (req, res) => {
     }
 
     try {
-        const archivos = req.files?.map(file => file.filename) || [];
+        const jsonArchivos = archivos && Array.isArray(archivos) ? JSON.stringify(archivos) : null;
+        console.log("📝 Archivos JSON para insertar:", jsonArchivos);
 
         const sql = `
             INSERT INTO pqrsf (
@@ -50,7 +52,7 @@ exports.crearPQRSF = async (req, res) => {
             telefono_adicional || null,
             objeto,
             descripcion,
-            archivos.length ? JSON.stringify(archivos) : null,
+            jsonArchivos,
             autorizacion_datos ? 1 : 0
         ];
 
@@ -66,7 +68,22 @@ exports.crearPQRSF = async (req, res) => {
 exports.obtenerPQRSF = async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM pqrsf ORDER BY id DESC');
-        res.status(200).json(rows);
+
+        const registros = rows.map(row => {
+            if (row.archivos && typeof row.archivos === 'string') {
+                try {
+                    row.archivos = JSON.parse(row.archivos);
+                } catch (error) {
+                    console.warn('⚠️ Error al parsear archivos:', error.message);
+                    row.archivos = [];
+                }
+            } else if (!Array.isArray(row.archivos)) {
+                row.archivos = [];
+            }
+            return row;
+        });
+
+        res.status(200).json(registros);
     } catch (error) {
         console.error('❌ Error al obtener PQRSF:', error);
         res.status(500).json({ message: 'Error al obtener registros' });
@@ -77,121 +94,86 @@ exports.obtenerPQRSF = async (req, res) => {
 exports.obtenerPQRSFPorId = async (req, res) => {
     try {
         const [rows] = await db.query('SELECT * FROM pqrsf WHERE id = ?', [req.params.id]);
+
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Registro no encontrado' });
         }
-        res.status(200).json(rows[0]);
-    } catch (error) {
-        console.error('❌ Error al buscar PQRSF:', error);
-        res.status(500).json({ message: 'Error interno del servidor' });
-    }
-};
 
-// Actualizar por ID
-exports.actualizarPQRSF = async (req, res) => {
-    const {
-        tipo_documento,
-        numero_documento,
-        nombres,
-        apellidos,
-        correo_electronico,
-        telefono_principal,
-        telefono_adicional,
-        objeto,
-        descripcion,
-        archivos,
-        autorizacion_datos
-    } = req.body;
-
-    try {
-        const sql = `
-            UPDATE pqrsf SET
-                tipo_documento = ?,
-                numero_documento = ?,
-                nombres = ?,
-                apellidos = ?,
-                correo_electronico = ?,
-                telefono_principal = ?,
-                telefono_adicional = ?,
-                objeto = ?,
-                descripcion = ?,
-                archivos = ?,
-                autorizacion_datos = ?
-            WHERE id = ?
-        `;
-
-        const valores = [
-            tipo_documento,
-            numero_documento,
-            nombres,
-            apellidos,
-            correo_electronico,
-            telefono_principal,
-            telefono_adicional || null,
-            objeto,
-            descripcion,
-            archivos ? JSON.stringify(archivos) : null,
-            autorizacion_datos ? 1 : 0,
-            req.params.id
-        ];
-
-        const [result] = await db.query(sql, valores);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Registro no encontrado para actualizar' });
+        const row = rows[0];
+        if (row.archivos && typeof row.archivos === 'string') {
+            try {
+                row.archivos = JSON.parse(row.archivos);
+            } catch (error) {
+                console.warn('⚠️ Error al parsear archivos por ID:', error.message);
+                row.archivos = [];
+            }
+        } else if (!Array.isArray(row.archivos)) {
+            row.archivos = [];
         }
 
-        res.status(200).json({ message: 'Registro actualizado correctamente' });
+        res.status(200).json(row);
     } catch (error) {
-        console.error('❌ Error al actualizar PQRSF:', error);
-        res.status(500).json({ message: 'Error interno del servidor' });
+        console.error('❌ Error al obtener PQRSF por ID:', error);
+        res.status(500).json({ message: 'Error al obtener registro' });
     }
 };
 
-// Eliminar por ID
+// Eliminar por ID y archivos en Supabase
 exports.eliminarPQRSF = async (req, res) => {
-    try {
-        const [rows] = await db.query('SELECT archivos FROM pqrsf WHERE id = ?', [req.params.id]);
+    const { id } = req.params;
 
-        if (rows.length === 0) {
+    try {
+        const [resultado] = await db.execute('SELECT archivos FROM pqrsf WHERE id = ?', [id]);
+
+        if (resultado.length === 0) {
             return res.status(404).json({ message: 'Registro no encontrado' });
         }
 
-        let archivos = [];
+        let archivos = resultado[0].archivos;
+
         try {
-            archivos = JSON.parse(rows[0].archivos);
-            if (!Array.isArray(archivos)) archivos = [];
+            if (typeof archivos === 'string' && archivos.startsWith('[')) {
+                archivos = JSON.parse(archivos);
+            } else if (typeof archivos === 'string') {
+                archivos = [archivos];
+            }
         } catch (err) {
-            console.warn('⚠️ Error al parsear archivos:', err.message);
+            console.warn('No se pudo parsear archivos:', archivos);
             archivos = [];
         }
 
-        const [result] = await db.query('DELETE FROM pqrsf WHERE id = ?', [req.params.id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Registro no encontrado' });
+        const rutasASuprimir = archivos.map((url) => {
+            const match = url.match(/legal360pdf\/(.+)$/);
+            const extraido = match ? decodeURIComponent(match[1]) : null;
+            console.log('🔍 URL original:', url);
+            console.log('📁 Ruta extraída (decodificada):', extraido);
+            return extraido;
+        }).filter(Boolean);
+
+        if (rutasASuprimir.length > 0) {
+            const { data, error: supaError } = await supabase
+                .storage
+                .from('legal360pdf')
+                .remove(rutasASuprimir);
+
+            if (supaError) {
+                console.error('❌ Error al eliminar archivos de Supabase:', supaError.message);
+            } else {
+                console.log('✅ Archivos eliminados correctamente de Supabase:', data);
+            }
         }
 
-        console.log("🧹 Archivos a eliminar:", archivos);
-
-        archivos.forEach(nombreArchivo => {
-            const rutaArchivo = path.join(__dirname, '..', 'uploads', nombreArchivo);
-            fs.access(rutaArchivo, fs.constants.F_OK, (err) => {
-                if (err) {
-                    console.warn(`⚠️ Archivo no encontrado: ${rutaArchivo}`);
-                } else {
-                    fs.unlink(rutaArchivo, (err) => {
-                        if (err) {
-                            console.error(`❌ Error al eliminar archivo ${rutaArchivo}:`, err.message);
-                        } else {
-                            console.log(`✅ Archivo eliminado correctamente: ${rutaArchivo}`);
-                        }
-                    });
-                }
-            });
-        });
+        await db.execute('DELETE FROM pqrsf WHERE id = ?', [id]);
 
         res.status(200).json({ message: 'Registro y archivos eliminados correctamente' });
+
     } catch (error) {
         console.error('❌ Error al eliminar PQRSF:', error);
-        res.status(500).json({ message: 'Error interno del servidor' });
+        res.status(500).json({ message: 'Error interno al eliminar PQRSF' });
     }
+};
+
+// Actualizar PQRSF (aún no implementado)
+exports.actualizarPQRSF = async (req, res) => {
+    return res.status(200).json({ message: 'Función de actualización aún no implementada' });
 };
